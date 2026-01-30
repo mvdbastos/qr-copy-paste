@@ -24,6 +24,9 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+# Publish results
+[Pp]ublish/
+
 # Visual Studio cache/options directory
 .vs/
 
