@@ -136,9 +136,13 @@ public partial class MainForm : Form
 
         try
         {
-            if (Clipboard.ContainsText())
+            // Only process if clipboard contains text (not images, files, etc.)
+            if (Clipboard.ContainsText(TextDataFormat.UnicodeText) || Clipboard.ContainsText(TextDataFormat.Text))
             {
-                var text = Clipboard.GetText();
+                // Get plain text only, ignoring any formatting (RTF, HTML, etc.)
+                var text = Clipboard.ContainsText(TextDataFormat.UnicodeText) 
+                    ? Clipboard.GetText(TextDataFormat.UnicodeText)
+                    : Clipboard.GetText(TextDataFormat.Text);
 
                 // Throttle duplicates
                 if (text == lastClipboardText && 
@@ -184,19 +188,10 @@ public partial class MainForm : Form
 
     private void ShowLastQr()
     {
-        if (!string.IsNullOrEmpty(lastClipboardText))
-        {
-            currentOverlay?.Close();
-            currentOverlay?.Dispose();
-            currentOverlay = new QrOverlay(lastClipboardText, settings.AutoDismissSeconds);
-            currentOverlay.Show();
-        }
-        else
-        {
-            trayIcon?.ShowBalloonTip(2000, "QR Copy-Paste", 
-                "No text copied yet.", 
-                ToolTipIcon.Info);
-        }
+        currentOverlay?.Close();
+        currentOverlay?.Dispose();
+        currentOverlay = new QrOverlay(lastClipboardText, settings.AutoDismissSeconds);
+        currentOverlay.Show();
     }
 
     private void TogglePause()
