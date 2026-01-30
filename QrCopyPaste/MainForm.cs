@@ -5,6 +5,11 @@ namespace QrCopyPaste;
 public partial class MainForm : Form
 {
     private const int WM_CLIPBOARDUPDATE = 0x031D;
+    private const int WM_HOTKEY = 0x0312;
+    private const int HOTKEY_ID = 1;
+    private const uint MOD_CONTROL = 0x0004;
+    private const uint MOD_SHIFT = 0x0008;
+    private const uint VK_Q = 0x51;
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool AddClipboardFormatListener(IntPtr hwnd);
@@ -17,6 +22,7 @@ public partial class MainForm : Form
     private string? lastClipboardText;
     private DateTime lastClipboardTime = DateTime.MinValue;
     private QrOverlay? currentOverlay;
+    private IntPtr trayIconHandle;
 
     public MainForm()
     {
@@ -48,16 +54,18 @@ public partial class MainForm : Form
         };
 
         // Create a simple icon programmatically
-        using var bitmap = new Bitmap(16, 16);
-        using var g = Graphics.FromImage(bitmap);
-        g.Clear(Color.White);
-        g.FillRectangle(Brushes.Black, 2, 2, 12, 12);
-        g.FillRectangle(Brushes.White, 4, 4, 8, 8);
-        g.FillRectangle(Brushes.Black, 6, 6, 4, 4);
+        var bitmap = new Bitmap(16, 16);
+        using (var g = Graphics.FromImage(bitmap))
+        {
+            g.Clear(Color.White);
+            g.FillRectangle(Brushes.Black, 2, 2, 12, 12);
+            g.FillRectangle(Brushes.White, 4, 4, 8, 8);
+            g.FillRectangle(Brushes.Black, 6, 6, 4, 4);
+        }
         
-        IntPtr hIcon = bitmap.GetHicon();
-        trayIcon.Icon = Icon.FromHandle(hIcon);
-        // Note: Icon handle will be released when trayIcon is disposed
+        trayIconHandle = bitmap.GetHicon();
+        trayIcon.Icon = Icon.FromHandle(trayIconHandle);
+        bitmap.Dispose();
         
         trayIcon.DoubleClick += (s, e) => ShowLastQr();
     }
@@ -111,9 +119,9 @@ public partial class MainForm : Form
         {
             HandleClipboardUpdate();
         }
-        else if (m.Msg == 0x0312) // WM_HOTKEY
+        else if (m.Msg == WM_HOTKEY)
         {
-            if (m.WParam.ToInt32() == 1)
+            if (m.WParam.ToInt32() == HOTKEY_ID)
             {
                 TogglePause();
             }
@@ -227,14 +235,18 @@ public partial class MainForm : Form
             UnregisterGlobalHotKey();
             trayIcon?.Dispose();
             currentOverlay?.Dispose();
+            if (trayIconHandle != IntPtr.Zero)
+            {
+                DestroyIcon(trayIconHandle);
+            }
         }
         base.Dispose(disposing);
     }
 
     private void RegisterGlobalHotKey()
     {
-        // Ctrl+Shift+Q (Modifiers: 4=Ctrl, 8=Shift, Key: Q=0x51)
-        if (!RegisterHotKey(Handle, 1, 0x0004 | 0x0008, 0x51))
+        // Ctrl+Shift+Q
+        if (!RegisterHotKey(Handle, HOTKEY_ID, MOD_CONTROL | MOD_SHIFT, VK_Q))
         {
             // Hotkey registration failed - another app may have registered it
             // Continue without hotkey - user can still use tray menu
@@ -243,7 +255,7 @@ public partial class MainForm : Form
 
     private void UnregisterGlobalHotKey()
     {
-        UnregisterHotKey(Handle, 1);
+        UnregisterHotKey(Handle, HOTKEY_ID);
     }
 
     [DllImport("user32.dll")]
@@ -251,4 +263,7 @@ public partial class MainForm : Form
 
     [DllImport("user32.dll")]
     private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    [DllImport("user32.dll")]
+    private static extern bool DestroyIcon(IntPtr hIcon);
 }
