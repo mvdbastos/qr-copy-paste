@@ -6,25 +6,34 @@ partial class MainForm
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing && (components != null))
+        if (disposing)
         {
-            components.Dispose();
+            RemoveClipboardFormatListener(Handle);
+            UnregisterGlobalHotKey();
+            trayIcon?.Dispose();
+            currentOverlay?.Dispose();
+            if (trayIconHandle != IntPtr.Zero)
+            {
+                DestroyIcon(trayIconHandle);
+            }
+            components?.Dispose();
         }
         base.Dispose(disposing);
     }
 
     private void InitializeComponent()
     {
-        this.SuspendLayout();
-        
+        SuspendLayout();
+        // 
         // MainForm
-        this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
-        this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-        this.ClientSize = new System.Drawing.Size(0, 0);
-        this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
-        this.Name = "MainForm";
-        this.Text = "QR Copy-Paste";
-        this.WindowState = System.Windows.Forms.FormWindowState.Minimized;
-        this.ResumeLayout(false);
+        // 
+        AutoScaleDimensions = new SizeF(7F, 15F);
+        AutoScaleMode = AutoScaleMode.Font;
+        ClientSize = new Size(0, 0);
+        FormBorderStyle = FormBorderStyle.None;
+        Name = "MainForm";
+        Text = "QR Copy-Paste";
+        WindowState = FormWindowState.Minimized;
+        ResumeLayout(false);
     }
 }

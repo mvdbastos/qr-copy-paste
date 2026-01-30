@@ -227,22 +227,6 @@ public partial class MainForm : Form
         Application.Exit();
     }
 
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            RemoveClipboardFormatListener(Handle);
-            UnregisterGlobalHotKey();
-            trayIcon?.Dispose();
-            currentOverlay?.Dispose();
-            if (trayIconHandle != IntPtr.Zero)
-            {
-                DestroyIcon(trayIconHandle);
-            }
-        }
-        base.Dispose(disposing);
-    }
-
     private void RegisterGlobalHotKey()
     {
         // Ctrl+Shift+Q
