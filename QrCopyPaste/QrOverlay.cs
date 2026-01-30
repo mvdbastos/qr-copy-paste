@@ -8,6 +8,7 @@ public class QrOverlay : Form
 {
     private readonly System.Windows.Forms.Timer autoCloseTimer;
     private readonly int dismissSeconds;
+    private Bitmap? qrBitmap;
 
     public QrOverlay(string text, int dismissSeconds)
     {
@@ -17,7 +18,7 @@ public class QrOverlay : Form
         using var qrGenerator = new QRCodeGenerator();
         using var qrCodeData = qrGenerator.CreateQrCode(text, QRCodeGenerator.ECCLevel.Q);
         using var qrCode = new QRCode(qrCodeData);
-        var qrBitmap = qrCode.GetGraphic(20);
+        qrBitmap = qrCode.GetGraphic(20);
 
         // Configure form
         FormBorderStyle = FormBorderStyle.None;
@@ -73,6 +74,7 @@ public class QrOverlay : Form
         {
             autoCloseTimer?.Stop();
             autoCloseTimer?.Dispose();
+            qrBitmap?.Dispose();
         }
         base.Dispose(disposing);
     }

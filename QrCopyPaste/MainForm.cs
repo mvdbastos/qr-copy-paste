@@ -35,7 +35,7 @@ public partial class MainForm : Form
         AddClipboardFormatListener(Handle);
 
         // Register global hotkey (Ctrl+Shift+Q)
-        RegisterHotKey();
+        RegisterGlobalHotKey();
     }
 
     private void SetupTrayIcon()
@@ -55,7 +55,10 @@ public partial class MainForm : Form
         g.FillRectangle(Brushes.White, 4, 4, 8, 8);
         g.FillRectangle(Brushes.Black, 6, 6, 4, 4);
         
-        trayIcon.Icon = Icon.FromHandle(bitmap.GetHicon());
+        IntPtr hIcon = bitmap.GetHicon();
+        trayIcon.Icon = Icon.FromHandle(hIcon);
+        // Note: Icon handle will be released when trayIcon is disposed
+        
         trayIcon.DoubleClick += (s, e) => ShowLastQr();
     }
 
@@ -131,6 +134,7 @@ public partial class MainForm : Form
 
                 // Throttle duplicates
                 if (text == lastClipboardText && 
+                    lastClipboardTime != DateTime.MinValue &&
                     (DateTime.Now - lastClipboardTime).TotalMilliseconds < settings.ThrottleMilliseconds)
                 {
                     return;
@@ -210,7 +214,7 @@ public partial class MainForm : Form
     private void ExitApplication()
     {
         RemoveClipboardFormatListener(Handle);
-        UnregisterHotKey();
+        UnregisterGlobalHotKey();
         trayIcon?.Dispose();
         Application.Exit();
     }
@@ -220,20 +224,24 @@ public partial class MainForm : Form
         if (disposing)
         {
             RemoveClipboardFormatListener(Handle);
-            UnregisterHotKey();
+            UnregisterGlobalHotKey();
             trayIcon?.Dispose();
             currentOverlay?.Dispose();
         }
         base.Dispose(disposing);
     }
 
-    private void RegisterHotKey()
+    private void RegisterGlobalHotKey()
     {
         // Ctrl+Shift+Q (Modifiers: 4=Ctrl, 8=Shift, Key: Q=0x51)
-        RegisterHotKey(Handle, 1, 0x0004 | 0x0008, 0x51);
+        if (!RegisterHotKey(Handle, 1, 0x0004 | 0x0008, 0x51))
+        {
+            // Hotkey registration failed - another app may have registered it
+            // Continue without hotkey - user can still use tray menu
+        }
     }
 
-    private void UnregisterHotKey()
+    private void UnregisterGlobalHotKey()
     {
         UnregisterHotKey(Handle, 1);
     }

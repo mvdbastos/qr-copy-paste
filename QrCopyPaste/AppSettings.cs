@@ -27,7 +27,8 @@ public class AppSettings
         }
         catch
         {
-            // If loading fails, return default settings
+            // Intentionally silent - if settings cannot be loaded, use defaults
+            // This handles corrupted files, permission issues, etc.
         }
         return new AppSettings();
     }
@@ -47,7 +48,8 @@ public class AppSettings
         }
         catch
         {
-            // Silently fail if we can't save settings
+            // Intentionally silent - application continues to work with in-memory settings
+            // if persistence fails due to permissions or disk issues
         }
     }
 }

@@ -5,6 +5,7 @@ namespace QrCopyPaste;
 static class Program
 {
     private const string AppGuid = "8F6F0AC4-B9A1-45FD-A8CF-72F04E6BFA9E";
+    private static Mutex? appMutex;
 
     [DllImport("user32.dll")]
     private static extern bool SetProcessDPIAware();
@@ -16,13 +17,10 @@ static class Program
     static void Main()
     {
         // Enable DPI awareness
-        if (Environment.OSVersion.Version.Major >= 6)
-        {
-            SetProcessDPIAware();
-        }
+        SetProcessDPIAware();
 
         // Ensure single instance
-        using var mutex = new Mutex(true, AppGuid, out bool createdNew);
+        appMutex = new Mutex(true, AppGuid, out bool createdNew);
         if (!createdNew)
         {
             MessageBox.Show("QR Copy-Paste is already running.", "Already Running", 
@@ -30,9 +28,17 @@ static class Program
             return;
         }
 
-        // To customize application configuration such as set high DPI settings or default font,
-        // see https://aka.ms/applicationconfiguration.
-        ApplicationConfiguration.Initialize();
-        Application.Run(new MainForm());
+        try
+        {
+            // To customize application configuration such as set high DPI settings or default font,
+            // see https://aka.ms/applicationconfiguration.
+            ApplicationConfiguration.Initialize();
+            Application.Run(new MainForm());
+        }
+        finally
+        {
+            appMutex?.ReleaseMutex();
+            appMutex?.Dispose();
+        }
     }    
 }
