@@ -9,11 +9,19 @@ namespace QrCopyPaste;
 /// </summary>
 public class QrDecoderService
 {
-    private readonly BarcodeReader reader;
+    private readonly BarcodeReader<Bitmap> reader;
 
     public QrDecoderService()
     {
-        reader = new BarcodeReader
+        reader = new BarcodeReader<Bitmap>(
+            null,
+            bitmap => new RGBLuminanceSource(
+                BitmapToBytes(bitmap),
+                bitmap.Width,
+                bitmap.Height
+            ),
+            null
+        )
         {
             AutoRotate = true,
             TryInverted = true,
@@ -23,6 +31,27 @@ public class QrDecoderService
                 PossibleFormats = new List<BarcodeFormat> { BarcodeFormat.QR_CODE }
             }
         };
+    }
+
+    private static byte[] BitmapToBytes(Bitmap bitmap)
+    {
+        var bitmapData = bitmap.LockBits(
+            new Rectangle(0, 0, bitmap.Width, bitmap.Height),
+            System.Drawing.Imaging.ImageLockMode.ReadOnly,
+            System.Drawing.Imaging.PixelFormat.Format24bppRgb
+        );
+
+        try
+        {
+            var length = Math.Abs(bitmapData.Stride) * bitmap.Height;
+            var bytes = new byte[length];
+            System.Runtime.InteropServices.Marshal.Copy(bitmapData.Scan0, bytes, 0, length);
+            return bytes;
+        }
+        finally
+        {
+            bitmap.UnlockBits(bitmapData);
+        }
     }
 
     /// <summary>
@@ -51,7 +80,15 @@ public class QrDecoderService
         var results = new List<string>();
         try
         {
-            var multiReader = new BarcodeReader
+            var multiReader = new BarcodeReader<Bitmap>(
+                null,
+                bmp => new RGBLuminanceSource(
+                    BitmapToBytes(bmp),
+                    bmp.Width,
+                    bmp.Height
+                ),
+                null
+            )
             {
                 AutoRotate = true,
                 TryInverted = true,
