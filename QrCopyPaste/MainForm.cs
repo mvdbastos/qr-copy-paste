@@ -137,46 +137,58 @@ public partial class MainForm : Form
         try
         {
             // Only process if clipboard contains text (not images, files, etc.)
-            if (Clipboard.ContainsText(TextDataFormat.UnicodeText) || Clipboard.ContainsText(TextDataFormat.Text))
+            string? text = null;
+
+            if (Clipboard.ContainsText(TextDataFormat.UnicodeText))
             {
-                // Get plain text only, ignoring any formatting (RTF, HTML, etc.)
-                var text = Clipboard.ContainsText(TextDataFormat.UnicodeText) 
-                    ? Clipboard.GetText(TextDataFormat.UnicodeText)
-                    : Clipboard.GetText(TextDataFormat.Text);
-
-                // Throttle duplicates
-                if (text == lastClipboardText && 
-                    lastClipboardTime != DateTime.MinValue &&
-                    (DateTime.Now - lastClipboardTime).TotalMilliseconds < settings.ThrottleMilliseconds)
-                {
-                    return;
-                }
-
-                // Validate text length
-                if (text.Length > settings.MaxTextLength)
-                {
-                    trayIcon?.ShowBalloonTip(3000, "QR Copy-Paste", 
-                        $"Text too long ({text.Length} characters). Max: {settings.MaxTextLength}", 
-                        ToolTipIcon.Warning);
-                    return;
-                }
-
-                if (string.IsNullOrWhiteSpace(text))
-                {
-                    return;
-                }
-
-                lastClipboardText = text;
-                lastClipboardTime = DateTime.Now;
-
-                // Close existing overlay if any
-                currentOverlay?.Close();
-                currentOverlay?.Dispose();
-
-                // Show new QR overlay
-                currentOverlay = new QrOverlay(text, settings.AutoDismissSeconds);
-                currentOverlay.Show();
+                // Prefer Unicode text if available
+                text = Clipboard.GetText(TextDataFormat.UnicodeText);
             }
+            else if (Clipboard.ContainsText(TextDataFormat.Text))
+            {
+                // Fallback to plain text
+                text = Clipboard.GetText(TextDataFormat.Text);
+            }
+
+            if (text == null)
+            {
+                return;
+            }
+
+            // Get plain text only, ignoring any formatting (RTF, HTML, etc.)
+
+            // Throttle duplicates
+            if (text == lastClipboardText && 
+                lastClipboardTime != DateTime.MinValue &&
+                (DateTime.Now - lastClipboardTime).TotalMilliseconds < settings.ThrottleMilliseconds)
+            {
+                return;
+            }
+
+            // Validate text length
+            if (text.Length > settings.MaxTextLength)
+            {
+                trayIcon?.ShowBalloonTip(3000, "QR Copy-Paste", 
+                    $"Text too long ({text.Length} characters). Max: {settings.MaxTextLength}", 
+                    ToolTipIcon.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            lastClipboardText = text;
+            lastClipboardTime = DateTime.Now;
+
+            // Close existing overlay if any
+            currentOverlay?.Close();
+            currentOverlay?.Dispose();
+
+            // Show new QR overlay
+            currentOverlay = new QrOverlay(text, settings.AutoDismissSeconds);
+            currentOverlay.Show();
         }
         catch (Exception ex)
         {
