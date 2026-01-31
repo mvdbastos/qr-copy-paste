@@ -36,7 +36,7 @@ A C# .NET 8 WinForms tray application that monitors the Windows clipboard and di
 ## Building
 
 ```bash
-dotnet build QrCopyPaste.sln
+dotnet build QrCopyPaste.slnx
 ```
 
 ## Running
