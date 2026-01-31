@@ -159,22 +159,37 @@ public class QrScanOverlay : Form
 
     private Bitmap CaptureScreen(Rectangle region)
     {
-        var desktopHandle = GetDesktopWindow();
-        var desktopDC = GetWindowDC(desktopHandle);
-        var memoryDC = CreateCompatibleDC(desktopDC);
-        var bitmap = CreateCompatibleBitmap(desktopDC, region.Width, region.Height);
-        var oldBitmap = SelectObject(memoryDC, bitmap);
+        IntPtr desktopHandle = IntPtr.Zero;
+        IntPtr desktopDC = IntPtr.Zero;
+        IntPtr memoryDC = IntPtr.Zero;
+        IntPtr bitmap = IntPtr.Zero;
+        IntPtr oldBitmap = IntPtr.Zero;
+        
+        try
+        {
+            desktopHandle = GetDesktopWindow();
+            desktopDC = GetWindowDC(desktopHandle);
+            memoryDC = CreateCompatibleDC(desktopDC);
+            bitmap = CreateCompatibleBitmap(desktopDC, region.Width, region.Height);
+            oldBitmap = SelectObject(memoryDC, bitmap);
 
-        BitBlt(memoryDC, 0, 0, region.Width, region.Height, desktopDC, region.X, region.Y, SRCCOPY);
+            BitBlt(memoryDC, 0, 0, region.Width, region.Height, desktopDC, region.X, region.Y, SRCCOPY);
 
-        SelectObject(memoryDC, oldBitmap);
-        DeleteDC(memoryDC);
-        ReleaseDC(desktopHandle, desktopDC);
-
-        var image = Image.FromHbitmap(bitmap);
-        DeleteObject(bitmap);
-
-        return image;
+            SelectObject(memoryDC, oldBitmap);
+            
+            var image = Image.FromHbitmap(bitmap);
+            return image;
+        }
+        finally
+        {
+            // Clean up GDI resources
+            if (bitmap != IntPtr.Zero)
+                DeleteObject(bitmap);
+            if (memoryDC != IntPtr.Zero)
+                DeleteDC(memoryDC);
+            if (desktopDC != IntPtr.Zero && desktopHandle != IntPtr.Zero)
+                ReleaseDC(desktopHandle, desktopDC);
+        }
     }
 
     private string? DecodeQrCode(Bitmap bitmap)

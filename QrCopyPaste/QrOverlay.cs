@@ -130,8 +130,9 @@ public class QrOverlay : Form
         };
 
         // Create PictureBox for QR code
-        // Clone the bitmap to give PictureBox its own copy, preventing double-disposal
-        // when both the PictureBox and our field dispose their images
+        // Clone the bitmap to give PictureBox its own copy.
+        // The PictureBox takes ownership of the cloned bitmap and will dispose it automatically.
+        // The form retains the original qrBitmap for Copy/Save operations.
         var pictureBox = new PictureBox
         {
             Image = (Bitmap)qrBitmap.Clone(),
