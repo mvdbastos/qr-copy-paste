@@ -129,7 +129,9 @@ public class QrOverlay : Form
             BackColor = Color.White
         };
 
-        // Create PictureBox for QR code - give it a copy to avoid double-disposal
+        // Create PictureBox for QR code
+        // Clone the bitmap to give PictureBox its own copy, preventing double-disposal
+        // when both the PictureBox and our field dispose their images
         var pictureBox = new PictureBox
         {
             Image = (Bitmap)qrBitmap.Clone(),
@@ -181,13 +183,12 @@ public class QrOverlay : Form
     {
         if (qrBitmap != null)
         {
-            // Stop auto-dismiss timer while showing notification
+            // Stop auto-dismiss timer
             autoCloseTimer?.Stop();
             
             try
             {
                 Clipboard.SetImage(qrBitmap);
-                // Close overlay and let tray notification show
                 Close();
             }
             catch (Exception ex)
