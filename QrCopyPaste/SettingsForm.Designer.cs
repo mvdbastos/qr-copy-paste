@@ -2,7 +2,7 @@ namespace QrCopyPaste;
 
 partial class SettingsForm
 {
-    private System.ComponentModel.IContainer components = null;
+    private readonly System.ComponentModel.IContainer components = null;
     private System.Windows.Forms.Label lblAutoDismiss;
     private System.Windows.Forms.NumericUpDown numAutoDismiss;
     private System.Windows.Forms.Label lblMaxLength;
