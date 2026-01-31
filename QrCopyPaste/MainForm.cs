@@ -18,6 +18,7 @@ public partial class MainForm : Form
     private static extern bool RemoveClipboardFormatListener(IntPtr hwnd);
 
     private NotifyIcon? trayIcon;
+    private ContextMenuStrip? trayContextMenu;
     private AppSettings settings;
     private string? lastClipboardText;
     private DateTime lastClipboardTime = DateTime.MinValue;
@@ -46,11 +47,13 @@ public partial class MainForm : Form
 
     private void SetupTrayIcon()
     {
+        trayContextMenu = CreateContextMenu();
+        
         trayIcon = new NotifyIcon
         {
             Text = "QR Copy-Paste",
             Visible = true,
-            ContextMenuStrip = CreateContextMenu()
+            ContextMenuStrip = trayContextMenu
         };
 
         // Create a simple icon programmatically
@@ -100,9 +103,9 @@ public partial class MainForm : Form
 
     private void UpdatePauseResumeMenuItem()
     {
-        if (trayIcon?.ContextMenuStrip != null)
+        if (trayContextMenu != null)
         {
-            foreach (ToolStripItem item in trayIcon.ContextMenuStrip.Items)
+            foreach (ToolStripItem item in trayContextMenu.Items)
             {
                 if (item is ToolStripMenuItem menuItem && menuItem.Tag?.ToString() == "pauseResume")
                 {
@@ -152,7 +155,11 @@ public partial class MainForm : Form
                 return;
             }
 
-            // Get plain text only, ignoring any formatting (RTF, HTML, etc.)
+            // Check for whitespace before length validation to avoid misleading error messages
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
 
             // Throttle duplicates
             if (text == lastClipboardText && 
@@ -168,11 +175,6 @@ public partial class MainForm : Form
                 trayIcon?.ShowBalloonTip(3000, "QR Copy-Paste", 
                     $"Text too long ({text.Length} characters). Max: {settings.MaxTextLength}", 
                     ToolTipIcon.Warning);
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(text))
-            {
                 return;
             }
 
@@ -197,6 +199,14 @@ public partial class MainForm : Form
 
     private void ShowLastQr()
     {
+        if (string.IsNullOrEmpty(lastClipboardText))
+        {
+            trayIcon?.ShowBalloonTip(2000, "QR Copy-Paste", 
+                "No text has been copied yet.", 
+                ToolTipIcon.Info);
+            return;
+        }
+
         currentOverlay?.Close();
         currentOverlay?.Dispose();
         currentOverlay = new QrOverlay(lastClipboardText, settings.AutoDismissSeconds);

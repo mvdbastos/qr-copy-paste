@@ -11,6 +11,7 @@ public class QrOverlay : Form
     private const int MinPixelsPerModule = 2;
     private const int Padding = 20;
     private const int MessageBoxSize = 200;
+    private Font? messageFont;
 
     public QrOverlay(string? text, int dismissSeconds)
     {
@@ -56,13 +57,16 @@ public class QrOverlay : Form
         BackColor = Color.White;
         Size = new Size(MessageBoxSize + Padding, MessageBoxSize + Padding);
 
+        // Create font for label (will be disposed in Dispose method)
+        messageFont = new Font("Segoe UI", 12, FontStyle.Bold);
+
         // Create label for message
         var label = new Label
         {
             Text = message,
             TextAlign = ContentAlignment.MiddleCenter,
             Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 12, FontStyle.Bold),
+            Font = messageFont,
             ForeColor = Color.DarkRed,
             BackColor = Color.White
         };
@@ -147,6 +151,7 @@ public class QrOverlay : Form
         {
             autoCloseTimer?.Stop();
             autoCloseTimer?.Dispose();
+            messageFont?.Dispose();
             // PictureBox will dispose its image automatically
         }
         base.Dispose(disposing);

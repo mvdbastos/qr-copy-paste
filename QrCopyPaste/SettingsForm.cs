@@ -6,13 +6,20 @@ public partial class SettingsForm : Form
 
     public SettingsForm(AppSettings settings)
     {
-        Settings = settings;
+        // Work with a copy of the provided settings to avoid modifying the original unless saved
+        Settings = new AppSettings
+        {
+            AutoDismissSeconds = settings.AutoDismissSeconds,
+            MaxTextLength = settings.MaxTextLength,
+            ThrottleMilliseconds = settings.ThrottleMilliseconds,
+            IsPaused = settings.IsPaused
+        };
         InitializeComponent();
 
         // Load current settings
-        numAutoDismiss.Value = settings.AutoDismissSeconds;
-        numMaxLength.Value = settings.MaxTextLength;
-        numThrottle.Value = settings.ThrottleMilliseconds;
+        numAutoDismiss.Value = Settings.AutoDismissSeconds;
+        numMaxLength.Value = Settings.MaxTextLength;
+        numThrottle.Value = Settings.ThrottleMilliseconds;
     }
 
     private void BtnSave_Click(object? sender, EventArgs e)

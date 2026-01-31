@@ -4,7 +4,7 @@ namespace QrCopyPaste;
 
 static class Program
 {
-    private const string AppGuid = "8F6F0AC4-B9A1-45FD-A8CF-72F04E6BFA9E";
+    private const string MutexName = "Global\\QrCopyPaste-8F6F0AC4-B9A1-45FD-A8CF-72F04E6BFA9E";
     private static Mutex? appMutex;
 
     [DllImport("user32.dll")]
@@ -20,7 +20,7 @@ static class Program
         SetProcessDPIAware();
 
         // Ensure single instance
-        appMutex = new Mutex(true, AppGuid, out bool createdNew);
+        appMutex = new Mutex(true, MutexName, out bool createdNew);
         if (!createdNew)
         {
             MessageBox.Show("QR Copy-Paste is already running.", "Already Running", 

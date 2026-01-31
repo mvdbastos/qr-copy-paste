@@ -10,6 +10,7 @@ partial class MainForm
         {
             RemoveClipboardFormatListener(Handle);
             UnregisterGlobalHotKey();
+            trayContextMenu?.Dispose();
             trayIcon?.Dispose();
             currentOverlay?.Dispose();
             if (trayIconHandle != IntPtr.Zero)

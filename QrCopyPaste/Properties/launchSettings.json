@@ -14,14 +14,6 @@
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Production"
       }
-    },
-    "QrCopyPaste (Debug Clipboard)": {
-      "commandName": "Project",
-      "dotnetRunMessages": true,
-      "environmentVariables": {
-        "DOTNET_ENVIRONMENT": "Development",
-        "QR_DEBUG_CLIPBOARD": "true"
-      }
     }
   }
 }
