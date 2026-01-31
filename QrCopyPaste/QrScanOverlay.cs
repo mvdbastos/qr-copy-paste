@@ -173,25 +173,18 @@ public class QrScanOverlay : Form
 
     private string? DecodeQrCode(Bitmap bitmap)
     {
-        try
+        var reader = new BarcodeReader
         {
-            var reader = new BarcodeReader
+            AutoRotate = true,
+            TryInverted = true,
+            Options = new DecodingOptions
             {
-                AutoRotate = true,
-                TryInverted = true,
-                Options = new DecodingOptions
-                {
-                    PossibleFormats = new[] { BarcodeFormat.QR_CODE },
-                    TryHarder = true
-                }
-            };
+                PossibleFormats = new[] { BarcodeFormat.QR_CODE },
+                TryHarder = true
+            }
+        };
 
-            var result = reader.Decode(bitmap);
-            return result?.Text;
-        }
-        catch
-        {
-            return null;
-        }
+        var result = reader.Decode(bitmap);
+        return result?.Text;
     }
 }

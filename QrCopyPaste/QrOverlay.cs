@@ -112,7 +112,10 @@ public class QrOverlay : Form
         
         // Generate QR code bitmap with calculated size
         using var qrCode = new QRCode(qrCodeData);
-        qrBitmap = qrCode.GetGraphic(pixelsPerModule);
+        var originalBitmap = qrCode.GetGraphic(pixelsPerModule);
+        
+        // Keep a reference for Copy/Save operations
+        qrBitmap = (Bitmap)originalBitmap.Clone();
 
         // Configure form
         FormBorderStyle = FormBorderStyle.None;
@@ -124,20 +127,23 @@ public class QrOverlay : Form
         // Create panel for QR code
         var qrPanel = new Panel
         {
-            Size = new Size(qrBitmap.Width + Padding, qrBitmap.Height + Padding),
+            Size = new Size(originalBitmap.Width + Padding, originalBitmap.Height + Padding),
             Location = new Point(0, 0),
             BackColor = Color.White
         };
 
-        // Create PictureBox for QR code
+        // Create PictureBox for QR code - give it a copy to avoid double-disposal
         var pictureBox = new PictureBox
         {
-            Image = qrBitmap,
+            Image = (Bitmap)originalBitmap.Clone(),
             SizeMode = PictureBoxSizeMode.CenterImage,
             Dock = DockStyle.Fill
         };
         qrPanel.Controls.Add(pictureBox);
         pictureBox.Click += (s, e) => Close();
+        
+        // Dispose the original bitmap
+        originalBitmap.Dispose();
 
         // Create button panel at bottom
         var buttonPanel = new Panel
