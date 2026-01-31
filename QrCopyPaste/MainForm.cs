@@ -77,14 +77,39 @@ public partial class MainForm : Form
     {
         var menu = new ContextMenuStrip();
 
-        var showLastItem = new ToolStripMenuItem("Show Last");
-        showLastItem.Click += (s, e) => ShowLastQr();
-        menu.Items.Add(showLastItem);
+        // Mode selection
+        var modeItem = new ToolStripMenuItem("Mode");
+        var clipboardToQrMode = new ToolStripMenuItem("Clipboard → QR");
+        clipboardToQrMode.Checked = settings.Mode == OperationMode.ClipboardToQr;
+        clipboardToQrMode.Click += (s, e) => SwitchMode(OperationMode.ClipboardToQr);
+        modeItem.DropDownItems.Add(clipboardToQrMode);
 
-        var pauseResumeItem = new ToolStripMenuItem(settings.IsPaused ? "Resume (Ctrl+Shift+Q)" : "Pause (Ctrl+Shift+Q)");
-        pauseResumeItem.Click += (s, e) => TogglePause();
-        pauseResumeItem.Tag = "pauseResume";
-        menu.Items.Add(pauseResumeItem);
+        var qrToClipboardMode = new ToolStripMenuItem("QR → Clipboard");
+        qrToClipboardMode.Checked = settings.Mode == OperationMode.QrToClipboard;
+        qrToClipboardMode.Click += (s, e) => SwitchMode(OperationMode.QrToClipboard);
+        modeItem.DropDownItems.Add(qrToClipboardMode);
+        
+        menu.Items.Add(modeItem);
+        menu.Items.Add(new ToolStripSeparator());
+
+        // Mode-specific items
+        if (settings.Mode == OperationMode.ClipboardToQr)
+        {
+            var showLastItem = new ToolStripMenuItem("Show Last");
+            showLastItem.Click += (s, e) => ShowLastQr();
+            menu.Items.Add(showLastItem);
+
+            var pauseResumeItem = new ToolStripMenuItem(settings.IsPaused ? "Resume (Ctrl+Shift+Q)" : "Pause (Ctrl+Shift+Q)");
+            pauseResumeItem.Click += (s, e) => TogglePause();
+            pauseResumeItem.Tag = "pauseResume";
+            menu.Items.Add(pauseResumeItem);
+        }
+        else // QrToClipboard mode
+        {
+            var manualScanItem = new ToolStripMenuItem("Manual Scan (Ctrl+Shift+Q)");
+            manualScanItem.Click += (s, e) => StartManualScan();
+            menu.Items.Add(manualScanItem);
+        }
 
         menu.Items.Add(new ToolStripSeparator());
 
@@ -120,11 +145,21 @@ public partial class MainForm : Form
     {
         if (m.Msg == WM_CLIPBOARDUPDATE)
         {
-            HandleClipboardUpdate();
+            if (settings.Mode == OperationMode.ClipboardToQr)
+            {
+                HandleClipboardUpdate();
+            }
         }
         else if (m.Msg == WM_HOTKEY && m.WParam.ToInt32() == HOTKEY_ID)
         {
-            TogglePause();
+            if (settings.Mode == OperationMode.ClipboardToQr)
+            {
+                TogglePause();
+            }
+            else
+            {
+                StartManualScan();
+            }
         }
         base.WndProc(ref m);
     }
@@ -186,7 +221,7 @@ public partial class MainForm : Form
             currentOverlay?.Dispose();
 
             // Show new QR overlay
-            currentOverlay = new QrOverlay(text, settings.AutoDismissSeconds);
+            currentOverlay = new QrOverlay(text, settings.AutoDismissSeconds, settings.ErrorCorrectionLevel);
             currentOverlay.Show();
         }
         catch (Exception ex)
@@ -209,7 +244,7 @@ public partial class MainForm : Form
 
         currentOverlay?.Close();
         currentOverlay?.Dispose();
-        currentOverlay = new QrOverlay(lastClipboardText, settings.AutoDismissSeconds);
+        currentOverlay = new QrOverlay(lastClipboardText, settings.AutoDismissSeconds, settings.ErrorCorrectionLevel);
         currentOverlay.Show();
     }
 
@@ -230,6 +265,53 @@ public partial class MainForm : Form
         if (settingsForm.ShowDialog() == DialogResult.OK)
         {
             settings = settingsForm.Settings;
+        }
+    }
+
+    private void SwitchMode(OperationMode newMode)
+    {
+        if (settings.Mode == newMode)
+            return;
+
+        settings.Mode = newMode;
+        settings.Save();
+
+        // Recreate context menu to reflect new mode
+        trayIcon!.ContextMenuStrip?.Dispose();
+        trayContextMenu = CreateContextMenu();
+        trayIcon.ContextMenuStrip = trayContextMenu;
+
+        // Show notification
+        var modeName = newMode == OperationMode.ClipboardToQr ? "Clipboard → QR" : "QR → Clipboard";
+        trayIcon?.ShowBalloonTip(2000, "QR Copy-Paste", 
+            $"Switched to {modeName} mode", 
+            ToolTipIcon.Info);
+    }
+
+    private void StartManualScan()
+    {
+        try
+        {
+            using var scanOverlay = new QrScanOverlay();
+            if (scanOverlay.ShowDialog() == DialogResult.OK && !string.IsNullOrEmpty(scanOverlay.DecodedText))
+            {
+                // Show preview dialog
+                using var previewDialog = new QrPreviewDialog(scanOverlay.DecodedText);
+                if (previewDialog.ShowDialog() == DialogResult.OK)
+                {
+                    // Copy to clipboard
+                    Clipboard.SetText(scanOverlay.DecodedText);
+                    trayIcon?.ShowBalloonTip(2000, "QR Copy-Paste", 
+                        "Text copied to clipboard", 
+                        ToolTipIcon.Info);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            trayIcon?.ShowBalloonTip(3000, "QR Copy-Paste Error", 
+                $"Failed to scan QR code: {ex.Message}", 
+                ToolTipIcon.Error);
         }
     }
 

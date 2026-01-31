@@ -2,12 +2,28 @@ using Newtonsoft.Json;
 
 namespace QrCopyPaste;
 
+public enum OperationMode
+{
+    ClipboardToQr,
+    QrToClipboard
+}
+
+public enum QrErrorCorrectionLevel
+{
+    Low,
+    Medium,
+    Quartile,
+    High
+}
+
 public class AppSettings
 {
     public int AutoDismissSeconds { get; set; } = 5;
     public int MaxTextLength { get; set; } = 500;
     public bool IsPaused { get; set; } = false;
     public int ThrottleMilliseconds { get; set; } = 500;
+    public OperationMode Mode { get; set; } = OperationMode.ClipboardToQr;
+    public QrErrorCorrectionLevel ErrorCorrectionLevel { get; set; } = QrErrorCorrectionLevel.Low;
 
     private static readonly string SettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

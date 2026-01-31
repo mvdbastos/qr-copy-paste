@@ -11,11 +11,16 @@ public class QrOverlay : Form
     private const int MinPixelsPerModule = 2;
     private const int Padding = 20;
     private const int MessageBoxSize = 200;
+    private const int ButtonHeight = 30;
+    private const int ButtonSpacing = 10;
     private Font? messageFont;
+    private Bitmap? qrBitmap;
+    private string? qrText;
 
-    public QrOverlay(string? text, int dismissSeconds)
+    public QrOverlay(string? text, int dismissSeconds, QrErrorCorrectionLevel errorCorrectionLevel = QrErrorCorrectionLevel.Low)
     {
         this.dismissSeconds = dismissSeconds;
+        this.qrText = text;
 
         // Get the active monitor to determine max size
         var cursorPosition = Cursor.Position;
@@ -28,7 +33,7 @@ public class QrOverlay : Form
         }
         else
         {
-            CreateQrCodeOverlay(text, activeScreen);
+            CreateQrCodeOverlay(text, activeScreen, errorCorrectionLevel);
         }
 
         // Position at bottom-right of active monitor
@@ -76,16 +81,26 @@ public class QrOverlay : Form
         label.Click += (s, e) => Close();
     }
 
-    private void CreateQrCodeOverlay(string text, Screen activeScreen)
+    private void CreateQrCodeOverlay(string text, Screen activeScreen, QrErrorCorrectionLevel errorCorrectionLevel)
     {
         // Calculate maximum QR size as 1/8 of screen (considering both width and height)
         var maxScreenDimension = Math.Min(activeScreen.Bounds.Width, activeScreen.Bounds.Height);
         var maxQrSize = maxScreenDimension / 8;
 
+        // Map our error correction level to QRCoder's ECCLevel
+        var eccLevel = errorCorrectionLevel switch
+        {
+            QrErrorCorrectionLevel.Low => QRCodeGenerator.ECCLevel.L,
+            QrErrorCorrectionLevel.Medium => QRCodeGenerator.ECCLevel.M,
+            QrErrorCorrectionLevel.Quartile => QRCodeGenerator.ECCLevel.Q,
+            QrErrorCorrectionLevel.High => QRCodeGenerator.ECCLevel.H,
+            _ => QRCodeGenerator.ECCLevel.L
+        };
+
         // Generate QR code data first to determine module count
         using var qrGenerator = new QRCodeGenerator();
         using var qrCodeData = qrGenerator.CreateQrCode(
-            plainText: text, eccLevel: QRCodeGenerator.ECCLevel.L,
+            plainText: text, eccLevel: eccLevel,
             forceUtf8: true,
             utf8BOM: true,
             eciMode: QRCodeGenerator.EciMode.Utf8
@@ -97,7 +112,7 @@ public class QrOverlay : Form
         
         // Generate QR code bitmap with calculated size
         using var qrCode = new QRCode(qrCodeData);
-        var qrBitmap = qrCode.GetGraphic(pixelsPerModule);
+        qrBitmap = qrCode.GetGraphic(pixelsPerModule);
 
         // Configure form
         FormBorderStyle = FormBorderStyle.None;
@@ -105,19 +120,103 @@ public class QrOverlay : Form
         TopMost = true;
         ShowInTaskbar = false;
         BackColor = Color.White;
-        Size = new Size(qrBitmap.Width + Padding, qrBitmap.Height + Padding);
 
-        // Create PictureBox for QR code - PictureBox takes ownership of the image
+        // Create panel for QR code
+        var qrPanel = new Panel
+        {
+            Size = new Size(qrBitmap.Width + Padding, qrBitmap.Height + Padding),
+            Location = new Point(0, 0),
+            BackColor = Color.White
+        };
+
+        // Create PictureBox for QR code
         var pictureBox = new PictureBox
         {
             Image = qrBitmap,
             SizeMode = PictureBoxSizeMode.CenterImage,
             Dock = DockStyle.Fill
         };
-        Controls.Add(pictureBox);
-
-        // Click to close
+        qrPanel.Controls.Add(pictureBox);
         pictureBox.Click += (s, e) => Close();
+
+        // Create button panel at bottom
+        var buttonPanel = new Panel
+        {
+            Height = ButtonHeight + ButtonSpacing * 2,
+            Dock = DockStyle.Bottom,
+            BackColor = Color.White
+        };
+
+        // Copy Image button
+        var btnCopyImage = new Button
+        {
+            Text = "Copy Image",
+            Width = 100,
+            Height = ButtonHeight,
+            Location = new Point(ButtonSpacing, ButtonSpacing)
+        };
+        btnCopyImage.Click += (s, e) => CopyImageToClipboard();
+        buttonPanel.Controls.Add(btnCopyImage);
+
+        // Save button
+        var btnSave = new Button
+        {
+            Text = "Save...",
+            Width = 80,
+            Height = ButtonHeight,
+            Location = new Point(btnCopyImage.Right + ButtonSpacing, ButtonSpacing)
+        };
+        btnSave.Click += (s, e) => SaveQrImage();
+        buttonPanel.Controls.Add(btnSave);
+
+        // Set form size
+        Size = new Size(qrPanel.Width, qrPanel.Height + buttonPanel.Height);
+
+        // Add controls to form
+        Controls.Add(qrPanel);
+        Controls.Add(buttonPanel);
+    }
+
+    private void CopyImageToClipboard()
+    {
+        if (qrBitmap != null)
+        {
+            try
+            {
+                Clipboard.SetImage(qrBitmap);
+                MessageBox.Show("QR code copied to clipboard!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to copy image: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+    }
+
+    private void SaveQrImage()
+    {
+        if (qrBitmap != null)
+        {
+            using var saveDialog = new SaveFileDialog
+            {
+                Filter = "PNG Image|*.png",
+                Title = "Save QR Code",
+                FileName = "qrcode.png"
+            };
+
+            if (saveDialog.ShowDialog() == DialogResult.OK)
+            {
+                try
+                {
+                    qrBitmap.Save(saveDialog.FileName, System.Drawing.Imaging.ImageFormat.Png);
+                    MessageBox.Show("QR code saved successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to save image: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
     }
 
     private int CalculatePixelsPerModule(int moduleCount, int maxQrSize)
@@ -152,7 +251,7 @@ public class QrOverlay : Form
             autoCloseTimer?.Stop();
             autoCloseTimer?.Dispose();
             messageFont?.Dispose();
-            // PictureBox will dispose its image automatically
+            qrBitmap?.Dispose();
         }
         base.Dispose(disposing);
     }

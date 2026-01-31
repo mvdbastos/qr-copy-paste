@@ -12,7 +12,9 @@ public partial class SettingsForm : Form
             AutoDismissSeconds = settings.AutoDismissSeconds,
             MaxTextLength = settings.MaxTextLength,
             ThrottleMilliseconds = settings.ThrottleMilliseconds,
-            IsPaused = settings.IsPaused
+            IsPaused = settings.IsPaused,
+            Mode = settings.Mode,
+            ErrorCorrectionLevel = settings.ErrorCorrectionLevel
         };
         InitializeComponent();
 
@@ -20,6 +22,7 @@ public partial class SettingsForm : Form
         numAutoDismiss.Value = Settings.AutoDismissSeconds;
         numMaxLength.Value = Settings.MaxTextLength;
         numThrottle.Value = Settings.ThrottleMilliseconds;
+        cmbErrorCorrection.SelectedIndex = (int)Settings.ErrorCorrectionLevel;
     }
 
     private void BtnSave_Click(object? sender, EventArgs e)
@@ -27,6 +30,7 @@ public partial class SettingsForm : Form
         Settings.AutoDismissSeconds = (int)numAutoDismiss.Value;
         Settings.MaxTextLength = (int)numMaxLength.Value;
         Settings.ThrottleMilliseconds = (int)numThrottle.Value;
+        Settings.ErrorCorrectionLevel = (QrErrorCorrectionLevel)cmbErrorCorrection.SelectedIndex;
         
         Settings.Save();
         DialogResult = DialogResult.OK;

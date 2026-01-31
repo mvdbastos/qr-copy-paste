@@ -9,6 +9,8 @@ partial class SettingsForm
     private System.Windows.Forms.NumericUpDown numMaxLength;
     private System.Windows.Forms.Label lblThrottle;
     private System.Windows.Forms.NumericUpDown numThrottle;
+    private System.Windows.Forms.Label lblErrorCorrection;
+    private System.Windows.Forms.ComboBox cmbErrorCorrection;
     private System.Windows.Forms.Button btnSave;
     private System.Windows.Forms.Button btnCancel;
 
@@ -29,6 +31,8 @@ partial class SettingsForm
         this.numMaxLength = new System.Windows.Forms.NumericUpDown();
         this.lblThrottle = new System.Windows.Forms.Label();
         this.numThrottle = new System.Windows.Forms.NumericUpDown();
+        this.lblErrorCorrection = new System.Windows.Forms.Label();
+        this.cmbErrorCorrection = new System.Windows.Forms.ComboBox();
         this.btnSave = new System.Windows.Forms.Button();
         this.btnCancel = new System.Windows.Forms.Button();
         ((System.ComponentModel.ISupportInitialize)(this.numAutoDismiss)).BeginInit();
@@ -83,8 +87,24 @@ partial class SettingsForm
         this.numThrottle.Size = new System.Drawing.Size(100, 23);
         this.numThrottle.Value = new decimal(new int[] { 500, 0, 0, 0 });
         
+        // lblErrorCorrection
+        this.lblErrorCorrection.AutoSize = true;
+        this.lblErrorCorrection.Location = new System.Drawing.Point(20, 125);
+        this.lblErrorCorrection.Name = "lblErrorCorrection";
+        this.lblErrorCorrection.Size = new System.Drawing.Size(140, 15);
+        this.lblErrorCorrection.Text = "Error Correction Level:";
+        
+        // cmbErrorCorrection
+        this.cmbErrorCorrection.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+        this.cmbErrorCorrection.FormattingEnabled = true;
+        this.cmbErrorCorrection.Items.AddRange(new object[] { "Low", "Medium", "Quartile", "High" });
+        this.cmbErrorCorrection.Location = new System.Drawing.Point(200, 123);
+        this.cmbErrorCorrection.Name = "cmbErrorCorrection";
+        this.cmbErrorCorrection.Size = new System.Drawing.Size(100, 23);
+        this.cmbErrorCorrection.SelectedIndex = 0;
+        
         // btnSave
-        this.btnSave.Location = new System.Drawing.Point(120, 130);
+        this.btnSave.Location = new System.Drawing.Point(120, 165);
         this.btnSave.Name = "btnSave";
         this.btnSave.Size = new System.Drawing.Size(80, 30);
         this.btnSave.Text = "Save";
@@ -93,7 +113,7 @@ partial class SettingsForm
         
         // btnCancel
         this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-        this.btnCancel.Location = new System.Drawing.Point(210, 130);
+        this.btnCancel.Location = new System.Drawing.Point(210, 165);
         this.btnCancel.Name = "btnCancel";
         this.btnCancel.Size = new System.Drawing.Size(80, 30);
         this.btnCancel.Text = "Cancel";
@@ -104,9 +124,11 @@ partial class SettingsForm
         this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
         this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
         this.CancelButton = this.btnCancel;
-        this.ClientSize = new System.Drawing.Size(330, 180);
+        this.ClientSize = new System.Drawing.Size(330, 215);
         this.Controls.Add(this.btnCancel);
         this.Controls.Add(this.btnSave);
+        this.Controls.Add(this.cmbErrorCorrection);
+        this.Controls.Add(this.lblErrorCorrection);
         this.Controls.Add(this.numThrottle);
         this.Controls.Add(this.lblThrottle);
         this.Controls.Add(this.numMaxLength);
