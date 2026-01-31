@@ -120,14 +120,20 @@ public class QrScanOverlay : Form
                     }
                     else
                     {
+                        // Hide overlay before showing message
+                        Hide();
                         MessageBox.Show("No QR code found in the selected region.", "QR Scan", 
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        // Show overlay again or close
                         selectionRect = Rectangle.Empty;
+                        Show();
                         Invalidate();
                     }
                 }
                 catch (Exception ex)
                 {
+                    // Hide overlay before showing error
+                    Hide();
                     MessageBox.Show($"Error scanning QR code: {ex.Message}", "Error", 
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                     DialogResult = DialogResult.Cancel;

@@ -112,10 +112,7 @@ public class QrOverlay : Form
         
         // Generate QR code bitmap with calculated size
         using var qrCode = new QRCode(qrCodeData);
-        var originalBitmap = qrCode.GetGraphic(pixelsPerModule);
-        
-        // Keep a reference for Copy/Save operations
-        qrBitmap = (Bitmap)originalBitmap.Clone();
+        qrBitmap = qrCode.GetGraphic(pixelsPerModule);
 
         // Configure form
         FormBorderStyle = FormBorderStyle.None;
@@ -127,7 +124,7 @@ public class QrOverlay : Form
         // Create panel for QR code
         var qrPanel = new Panel
         {
-            Size = new Size(originalBitmap.Width + Padding, originalBitmap.Height + Padding),
+            Size = new Size(qrBitmap.Width + Padding, qrBitmap.Height + Padding),
             Location = new Point(0, 0),
             BackColor = Color.White
         };
@@ -135,15 +132,12 @@ public class QrOverlay : Form
         // Create PictureBox for QR code - give it a copy to avoid double-disposal
         var pictureBox = new PictureBox
         {
-            Image = (Bitmap)originalBitmap.Clone(),
+            Image = (Bitmap)qrBitmap.Clone(),
             SizeMode = PictureBoxSizeMode.CenterImage,
             Dock = DockStyle.Fill
         };
         qrPanel.Controls.Add(pictureBox);
         pictureBox.Click += (s, e) => Close();
-        
-        // Dispose the original bitmap
-        originalBitmap.Dispose();
 
         // Create button panel at bottom
         var buttonPanel = new Panel
@@ -187,10 +181,14 @@ public class QrOverlay : Form
     {
         if (qrBitmap != null)
         {
+            // Stop auto-dismiss timer while showing notification
+            autoCloseTimer?.Stop();
+            
             try
             {
                 Clipboard.SetImage(qrBitmap);
-                MessageBox.Show("QR code copied to clipboard!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                // Close overlay and let tray notification show
+                Close();
             }
             catch (Exception ex)
             {
@@ -203,6 +201,9 @@ public class QrOverlay : Form
     {
         if (qrBitmap != null)
         {
+            // Stop auto-dismiss timer while dialog is open
+            autoCloseTimer?.Stop();
+            
             using var saveDialog = new SaveFileDialog
             {
                 Filter = "PNG Image|*.png",
@@ -215,12 +216,18 @@ public class QrOverlay : Form
                 try
                 {
                     qrBitmap.Save(saveDialog.FileName, System.Drawing.Imaging.ImageFormat.Png);
-                    MessageBox.Show("QR code saved successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    // Close overlay after successful save
+                    Close();
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show($"Failed to save image: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
+            }
+            else
+            {
+                // User cancelled - restart the timer
+                autoCloseTimer?.Start();
             }
         }
     }
