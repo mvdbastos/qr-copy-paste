@@ -46,7 +46,7 @@ A C# .NET 8 WinForms tray application with dual operation modes for seamless QR 
 - **Auto-dismiss (seconds)**: How long QR codes remain visible (1-60 seconds, default: 5)
 - **Max text length (characters)**: Maximum text length for QR generation (50-2000, default: 500)
 - **Throttle delay (milliseconds)**: Minimum time between duplicate QR codes (100-5000ms, default: 500)
-- **Error Correction Level**: QR code error correction level - Low (default), Medium, Quartile (Q), or High
+- **Error Correction Level**: QR code error correction level - Low (default), Medium, Quartile, or High
 
 ## Requirements
 

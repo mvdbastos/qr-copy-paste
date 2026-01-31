@@ -177,8 +177,8 @@ public class QrScanOverlay : Form
 
             SelectObject(memoryDC, oldBitmap);
             
-            var image = Image.FromHbitmap(bitmap);
-            return image;
+            var capturedBitmap = Image.FromHbitmap(bitmap);
+            return capturedBitmap;
         }
         finally
         {
