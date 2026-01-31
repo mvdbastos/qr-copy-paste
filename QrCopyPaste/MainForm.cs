@@ -119,12 +119,9 @@ public partial class MainForm : Form
         {
             HandleClipboardUpdate();
         }
-        else if (m.Msg == WM_HOTKEY)
+        else if (m.Msg == WM_HOTKEY && m.WParam.ToInt32() == HOTKEY_ID)
         {
-            if (m.WParam.ToInt32() == HOTKEY_ID)
-            {
-                TogglePause();
-            }
+            TogglePause();
         }
         base.WndProc(ref m);
     }
