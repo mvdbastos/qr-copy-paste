@@ -88,9 +88,9 @@ public class QrOverlay : Form
         // Generate QR code data first to determine module count
         using var qrGenerator = new QRCodeGenerator();
         using var qrCodeData = qrGenerator.CreateQrCode(
-            plainText: text, eccLevel: eccLevel,
+            plainText: text,
+            eccLevel: eccLevel,
             forceUtf8: true,
-            utf8BOM: true,
             eciMode: QRCodeGenerator.EciMode.Utf8
         );
         
@@ -141,19 +141,36 @@ public class QrOverlay : Form
 
         Controls.Add(buttonPanel);
 
+        // Create container panel for QR code with padding
+        var qrContainer = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.White,
+            Padding = new Padding(Padding)
+        };
+
         // Create PictureBox for QR code
         var pictureBox = new PictureBox
         {
             Image = qrBitmap,
-            SizeMode = PictureBoxSizeMode.CenterImage,
-            Dock = DockStyle.Fill
+            SizeMode = PictureBoxSizeMode.AutoSize,
+            Dock = DockStyle.None,
+            BackColor = Color.White,
+            Left = Padding,
+            Top = Padding
         };
-        Controls.Add(pictureBox);
+        qrContainer.Controls.Add(pictureBox);
+        Controls.Add(qrContainer);
         
-        Size = new Size(qrBitmap.Width + Padding, qrBitmap.Height + Padding + buttonPanel.Height);
+        // Calculate form size properly with padding around QR code
+        var formWidth = qrBitmap.Width + Padding * 2;
+        var formHeight = qrBitmap.Height + Padding * 2 + buttonPanel.Height;
+        
+        Size = new Size(formWidth, formHeight);
 
         // Click to close
         pictureBox.Click += (s, e) => Close();
+        qrContainer.Click += (s, e) => Close();
     }
 
     private void CopyQrImageToClipboard()
