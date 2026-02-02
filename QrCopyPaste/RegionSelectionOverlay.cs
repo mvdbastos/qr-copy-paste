@@ -134,8 +134,8 @@ public class RegionSelectionOverlay : Form
             {
                 var text = $"{width} x {height}";
                 var textSize = e.Graphics.MeasureString(text, font);
-                var textX = x + width / 2 - textSize.Width / 2;
-                var textY = y + height / 2 - textSize.Height / 2;
+                float textX = x + width / 2f - textSize.Width / 2f;
+                float textY = y + height / 2f - textSize.Height / 2f;
                 e.Graphics.DrawString(text, font, brush, textX, textY);
             }
         }

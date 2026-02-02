@@ -449,14 +449,13 @@ public partial class MainForm : Form
                 }
             }
 
-            if (previewDialog.ShouldIgnoreWindow && !string.IsNullOrEmpty(sourceWindow))
+            if (previewDialog.ShouldIgnoreWindow &&
+                !string.IsNullOrEmpty(sourceWindow) &&
+                !settings.BlockedWindowTitles.Contains(sourceWindow))
             {
-                if (!settings.BlockedWindowTitles.Contains(sourceWindow))
-                {
-                    settings.BlockedWindowTitles.Add(sourceWindow);
-                    settings.Save();
-                    ShowNotification("Window Blocked", $"Will ignore QR codes from: {sourceWindow}");
-                }
+                settings.BlockedWindowTitles.Add(sourceWindow);
+                settings.Save();
+                ShowNotification("Window Blocked", $"Will ignore QR codes from: {sourceWindow}");
             }
         }
     }

@@ -99,11 +99,7 @@ public class AutoScanService : IDisposable
 
             using (capture)
             {
-                // Check if QR meets minimum size requirement
-                if (!decoderService.ContainsQrCode(capture, settings.MinQrSize))
-                    return;
-
-                // Decode QR code
+                // Decode QR code once per capture
                 var decodedText = decoderService.DecodeQrCode(capture);
                 if (string.IsNullOrWhiteSpace(decodedText))
                     return;
