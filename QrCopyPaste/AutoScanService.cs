@@ -15,7 +15,7 @@ public class AutoScanService : IDisposable
     
     private string? lastDetectedQr;
     private DateTime lastDetectionTime = DateTime.MinValue;
-    private bool isScanning;
+    private int isScanning;  // 0 = not scanning, 1 = scanning (used with Interlocked)
 
     public bool IsRunning { get; private set; }
 
@@ -56,18 +56,19 @@ public class AutoScanService : IDisposable
 
     private void ScanCallback(object? state)
     {
-        // Prevent overlapping scans
-        if (isScanning)
+        // Prevent overlapping scans using thread-safe Interlocked operation
+        // If already scanning (value is 1), return without changing it
+        if (Interlocked.CompareExchange(ref isScanning, 1, 0) != 0)
             return;
 
-        isScanning = true;
         try
         {
             PerformScan();
         }
         finally
         {
-            isScanning = false;
+            // Reset scanning flag
+            Interlocked.Exchange(ref isScanning, 0);
         }
     }
 

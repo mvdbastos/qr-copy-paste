@@ -37,7 +37,10 @@ public class AppSettings
             if (File.Exists(SettingsPath))
             {
                 var json = File.ReadAllText(SettingsPath);
-                return JsonConvert.DeserializeObject<AppSettings>(json) ?? new AppSettings();
+                var settings = JsonConvert.DeserializeObject<AppSettings>(json) ?? new AppSettings();
+                // Ensure BlockedWindowTitles is never null after deserialization
+                settings.BlockedWindowTitles ??= new List<string>();
+                return settings;
             }
         }
         catch

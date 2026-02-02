@@ -35,22 +35,55 @@ public class QrDecoderService
 
     private static byte[] BitmapToBytes(Bitmap bitmap)
     {
-        var bitmapData = bitmap.LockBits(
-            new Rectangle(0, 0, bitmap.Width, bitmap.Height),
-            System.Drawing.Imaging.ImageLockMode.ReadOnly,
-            System.Drawing.Imaging.PixelFormat.Format24bppRgb
-        );
+        // Use the bitmap's actual pixel format to avoid conversion errors
+        var pixelFormat = bitmap.PixelFormat;
+        
+        // Convert to 24bpp RGB if necessary for compatibility
+        if (pixelFormat != System.Drawing.Imaging.PixelFormat.Format24bppRgb)
+        {
+            using var tempBitmap = new Bitmap(bitmap.Width, bitmap.Height, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            using (var g = Graphics.FromImage(tempBitmap))
+            {
+                g.DrawImage(bitmap, 0, 0, bitmap.Width, bitmap.Height);
+            }
+            
+            var bitmapData = tempBitmap.LockBits(
+                new Rectangle(0, 0, tempBitmap.Width, tempBitmap.Height),
+                System.Drawing.Imaging.ImageLockMode.ReadOnly,
+                System.Drawing.Imaging.PixelFormat.Format24bppRgb
+            );
 
-        try
-        {
-            var length = Math.Abs(bitmapData.Stride) * bitmap.Height;
-            var bytes = new byte[length];
-            System.Runtime.InteropServices.Marshal.Copy(bitmapData.Scan0, bytes, 0, length);
-            return bytes;
+            try
+            {
+                var length = Math.Abs(bitmapData.Stride) * tempBitmap.Height;
+                var bytes = new byte[length];
+                System.Runtime.InteropServices.Marshal.Copy(bitmapData.Scan0, bytes, 0, length);
+                return bytes;
+            }
+            finally
+            {
+                tempBitmap.UnlockBits(bitmapData);
+            }
         }
-        finally
+        else
         {
-            bitmap.UnlockBits(bitmapData);
+            var bitmapData = bitmap.LockBits(
+                new Rectangle(0, 0, bitmap.Width, bitmap.Height),
+                System.Drawing.Imaging.ImageLockMode.ReadOnly,
+                System.Drawing.Imaging.PixelFormat.Format24bppRgb
+            );
+
+            try
+            {
+                var length = Math.Abs(bitmapData.Stride) * bitmap.Height;
+                var bytes = new byte[length];
+                System.Runtime.InteropServices.Marshal.Copy(bitmapData.Scan0, bytes, 0, length);
+                return bytes;
+            }
+            finally
+            {
+                bitmap.UnlockBits(bitmapData);
+            }
         }
     }
 
@@ -102,13 +135,8 @@ public class QrDecoderService
             var result = multiReader.DecodeMultiple(bitmap);
             if (result != null)
             {
-                foreach (var res in result)
-                {
-                    if (!string.IsNullOrEmpty(res.Text))
-                    {
-                        results.Add(res.Text);
-                    }
-                }
+                results.AddRange(result.Where(res => !string.IsNullOrEmpty(res.Text))
+                                       .Select(res => res.Text));
             }
         }
         catch

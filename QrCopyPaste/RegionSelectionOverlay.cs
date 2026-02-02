@@ -20,9 +20,11 @@ public class RegionSelectionOverlay : Form
         // Capture the screen before showing overlay
         CaptureScreen();
 
-        // Configure form
+        // Configure form for multi-monitor support
         FormBorderStyle = FormBorderStyle.None;
-        WindowState = FormWindowState.Maximized;
+        StartPosition = FormStartPosition.Manual;
+        var virtualScreen = SystemInformation.VirtualScreen;
+        Bounds = virtualScreen;
         TopMost = true;
         ShowInTaskbar = false;
         DoubleBuffered = true;
@@ -82,9 +84,10 @@ public class RegionSelectionOverlay : Form
         {
             isDrawing = false;
             
-            // Calculate the selected region
-            var x = Math.Min(startPoint.X, currentPoint.X);
-            var y = Math.Min(startPoint.Y, currentPoint.Y);
+            // Calculate the selected region relative to screen coordinates
+            var virtualScreen = SystemInformation.VirtualScreen;
+            var x = Math.Min(startPoint.X, currentPoint.X) + virtualScreen.Left;
+            var y = Math.Min(startPoint.Y, currentPoint.Y) + virtualScreen.Top;
             var width = Math.Abs(currentPoint.X - startPoint.X);
             var height = Math.Abs(currentPoint.Y - startPoint.Y);
 

@@ -1,21 +1,30 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using System.Diagnostics.CodeAnalysis;
 
 namespace QrCopyPaste;
 
 /// <summary>
 /// Service for capturing screen regions on Windows.
+/// Uses P/Invoke for window management as these APIs are not available in managed code.
 /// </summary>
 public class ScreenCaptureService
 {
+    // P/Invoke is necessary for Windows window management APIs not available in .NET
     [DllImport("user32.dll")]
+    [SuppressMessage("Interoperability", "CA1401:P/Invokes should not be visible", 
+        Justification = "Windows API required for window detection")]
     private static extern IntPtr GetForegroundWindow();
 
     [DllImport("user32.dll")]
+    [SuppressMessage("Interoperability", "CA1401:P/Invokes should not be visible",
+        Justification = "Windows API required for window bounds")]
     private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
     [DllImport("user32.dll")]
+    [SuppressMessage("Interoperability", "CA1401:P/Invokes should not be visible",
+        Justification = "Windows API required for window title")]
     private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int count);
 
     [StructLayout(LayoutKind.Sequential)]

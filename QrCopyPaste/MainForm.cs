@@ -425,7 +425,9 @@ public partial class MainForm : Form
     private void ShowQrPreview(string decodedText, string? sourceWindow)
     {
         using var previewDialog = new QrPreviewDialog(decodedText, sourceWindow);
-        if (previewDialog.ShowDialog() == DialogResult.OK)
+        var result = previewDialog.ShowDialog();
+        
+        if (result == DialogResult.OK)
         {
             if (previewDialog.ShouldCopyToClipboard)
             {
@@ -448,15 +450,16 @@ public partial class MainForm : Form
                     ShowNotification("Error", "Failed to open URL");
                 }
             }
-
-            if (previewDialog.ShouldIgnoreWindow &&
-                !string.IsNullOrEmpty(sourceWindow) &&
-                !settings.BlockedWindowTitles.Contains(sourceWindow))
-            {
-                settings.BlockedWindowTitles.Add(sourceWindow);
-                settings.Save();
-                ShowNotification("Window Blocked", $"Will ignore QR codes from: {sourceWindow}");
-            }
+        }
+        
+        // Handle "Always Ignore Window" regardless of OK/Cancel
+        if (previewDialog.ShouldIgnoreWindow &&
+            !string.IsNullOrEmpty(sourceWindow) &&
+            !settings.BlockedWindowTitles.Contains(sourceWindow))
+        {
+            settings.BlockedWindowTitles.Add(sourceWindow);
+            settings.Save();
+            ShowNotification("Window Blocked", $"Will ignore QR codes from: {sourceWindow}");
         }
     }
 
