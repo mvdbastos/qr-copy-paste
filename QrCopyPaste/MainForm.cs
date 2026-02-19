@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 namespace QrCopyPaste;
 
@@ -20,9 +21,17 @@ public partial class MainForm : Form
     private NotifyIcon? trayIcon;
     private ContextMenuStrip? trayContextMenu;
     private AppSettings settings;
+    
+    // Clipboard → QR mode fields
     private string? lastClipboardText;
     private DateTime lastClipboardTime = DateTime.MinValue;
     private QrOverlay? currentOverlay;
+    
+    // QR → Clipboard mode fields
+    private ScreenCaptureService? captureService;
+    private QrDecoderService? decoderService;
+    private AutoScanService? autoScanService;
+    
     private IntPtr trayIconHandle;
 
     public MainForm()
@@ -30,19 +39,73 @@ public partial class MainForm : Form
         InitializeComponent();
         settings = AppSettings.Load();
 
+        // Restore last mode
+        settings.CurrentMode = settings.LastMode;
+
         // Hide the form (tray-only app)
         WindowState = FormWindowState.Minimized;
         ShowInTaskbar = false;
         Opacity = 0;
 
+        // Initialize services
+        InitializeServices();
+
         // Setup tray icon
         SetupTrayIcon();
 
-        // Register clipboard listener
+        // Register clipboard listener (for Clipboard → QR mode)
         AddClipboardFormatListener(Handle);
 
-        // Register global hotkey (Ctrl+Shift+Q)
+        // Register global hotkey (Ctrl+Shift+Q for manual scan)
         RegisterGlobalHotKey();
+
+        // Start auto-scan if enabled and in QR → Clipboard mode
+        UpdateModeState();
+    }
+
+    private void InitializeServices()
+    {
+        captureService = new ScreenCaptureService();
+        decoderService = new QrDecoderService();
+        autoScanService = new AutoScanService(settings, captureService, decoderService, OnQrDetected);
+    }
+
+    private void OnQrDetected(string decodedText, string? sourceWindow)
+    {
+        // Ensure we're on UI thread
+        if (InvokeRequired)
+        {
+            Invoke(() => OnQrDetected(decodedText, sourceWindow));
+            return;
+        }
+
+        // Check if we should confirm sensitive patterns
+        if (settings.ConfirmSensitivePatterns && IsSensitivePattern(decodedText))
+        {
+            ShowQrPreview(decodedText, sourceWindow);
+        }
+        else
+        {
+            // Directly copy to clipboard
+            CopyToClipboard(decodedText);
+            ShowNotification("QR Code Detected", $"Copied to clipboard: {TruncateText(decodedText, 50)}");
+        }
+    }
+
+    private bool IsSensitivePattern(string text)
+    {
+        // Check for potential sensitive patterns
+        return text.Contains("bitcoin:", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("ethereum:", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("payment", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("wallet", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string TruncateText(string text, int maxLength)
+    {
+        if (text.Length <= maxLength)
+            return text;
+        return text.Substring(0, maxLength) + "...";
     }
 
     private void SetupTrayIcon()
@@ -77,14 +140,54 @@ public partial class MainForm : Form
     {
         var menu = new ContextMenuStrip();
 
-        var showLastItem = new ToolStripMenuItem("Show Last");
-        showLastItem.Click += (s, e) => ShowLastQr();
-        menu.Items.Add(showLastItem);
+        // Mode selector
+        var modeMenu = new ToolStripMenuItem("Mode");
+        
+        var clipboardToQrItem = new ToolStripMenuItem("Clipboard → QR")
+        {
+            Checked = settings.CurrentMode == OperationMode.ClipboardToQr,
+            Tag = OperationMode.ClipboardToQr
+        };
+        clipboardToQrItem.Click += (s, e) => SwitchMode(OperationMode.ClipboardToQr);
+        modeMenu.DropDownItems.Add(clipboardToQrItem);
 
-        var pauseResumeItem = new ToolStripMenuItem(settings.IsPaused ? "Resume (Ctrl+Shift+Q)" : "Pause (Ctrl+Shift+Q)");
-        pauseResumeItem.Click += (s, e) => TogglePause();
-        pauseResumeItem.Tag = "pauseResume";
-        menu.Items.Add(pauseResumeItem);
+        var qrToClipboardItem = new ToolStripMenuItem("QR → Clipboard")
+        {
+            Checked = settings.CurrentMode == OperationMode.QrToClipboard,
+            Tag = OperationMode.QrToClipboard
+        };
+        qrToClipboardItem.Click += (s, e) => SwitchMode(OperationMode.QrToClipboard);
+        modeMenu.DropDownItems.Add(qrToClipboardItem);
+
+        menu.Items.Add(modeMenu);
+        menu.Items.Add(new ToolStripSeparator());
+
+        // Mode-specific items
+        if (settings.CurrentMode == OperationMode.ClipboardToQr)
+        {
+            var showLastItem = new ToolStripMenuItem("Show Last QR");
+            showLastItem.Click += (s, e) => ShowLastQr();
+            menu.Items.Add(showLastItem);
+
+            var pauseResumeItem = new ToolStripMenuItem(settings.IsPaused ? "Resume Monitoring" : "Pause Monitoring");
+            pauseResumeItem.Click += (s, e) => TogglePauseClipboardMonitoring();
+            pauseResumeItem.Tag = "pauseResume";
+            menu.Items.Add(pauseResumeItem);
+        }
+        else // QR → Clipboard
+        {
+            var manualScanItem = new ToolStripMenuItem("Manual Scan (Ctrl+Shift+Q)");
+            manualScanItem.Click += (s, e) => StartManualScan();
+            menu.Items.Add(manualScanItem);
+
+            var autoScanItem = new ToolStripMenuItem(settings.AutoScanEnabled ? "Disable Auto Scan" : "Enable Auto Scan")
+            {
+                Checked = settings.AutoScanEnabled,
+                Tag = "autoScan"
+            };
+            autoScanItem.Click += (s, e) => ToggleAutoScan();
+            menu.Items.Add(autoScanItem);
+        }
 
         menu.Items.Add(new ToolStripSeparator());
 
@@ -101,20 +204,6 @@ public partial class MainForm : Form
         return menu;
     }
 
-    private void UpdatePauseResumeMenuItem()
-    {
-        if (trayContextMenu != null)
-        {
-            foreach (ToolStripItem item in trayContextMenu.Items)
-            {
-                if (item is ToolStripMenuItem menuItem && menuItem.Tag?.ToString() == "pauseResume")
-                {
-                    menuItem.Text = settings.IsPaused ? "Resume (Ctrl+Shift+Q)" : "Pause (Ctrl+Shift+Q)";
-                    break;
-                }
-            }
-        }
-    }
 
     protected override void WndProc(ref Message m)
     {
@@ -124,13 +213,25 @@ public partial class MainForm : Form
         }
         else if (m.Msg == WM_HOTKEY && m.WParam.ToInt32() == HOTKEY_ID)
         {
-            TogglePause();
+            // Hotkey behavior depends on mode
+            if (settings.CurrentMode == OperationMode.QrToClipboard)
+            {
+                StartManualScan();
+            }
+            else
+            {
+                TogglePauseClipboardMonitoring();
+            }
         }
         base.WndProc(ref m);
     }
 
     private void HandleClipboardUpdate()
     {
+        // Only handle in Clipboard → QR mode
+        if (settings.CurrentMode != OperationMode.ClipboardToQr)
+            return;
+
         if (settings.IsPaused)
             return;
 
@@ -186,7 +287,7 @@ public partial class MainForm : Form
             currentOverlay?.Dispose();
 
             // Show new QR overlay
-            currentOverlay = new QrOverlay(text, settings.AutoDismissSeconds);
+            currentOverlay = new QrOverlay(text, settings.AutoDismissSeconds, settings.ErrorCorrectionLevel);
             currentOverlay.Show();
         }
         catch (Exception ex)
@@ -209,19 +310,174 @@ public partial class MainForm : Form
 
         currentOverlay?.Close();
         currentOverlay?.Dispose();
-        currentOverlay = new QrOverlay(lastClipboardText, settings.AutoDismissSeconds);
+        currentOverlay = new QrOverlay(lastClipboardText, settings.AutoDismissSeconds, settings.ErrorCorrectionLevel);
         currentOverlay.Show();
     }
 
-    private void TogglePause()
+    private void TogglePauseClipboardMonitoring()
     {
         settings.IsPaused = !settings.IsPaused;
         settings.Save();
-        UpdatePauseResumeMenuItem();
+        UpdateContextMenu();
         
-        trayIcon?.ShowBalloonTip(2000, "QR Copy-Paste", 
-            settings.IsPaused ? "Monitoring paused" : "Monitoring resumed", 
-            ToolTipIcon.Info);
+        ShowNotification("QR Copy-Paste", 
+            settings.IsPaused ? "Clipboard monitoring paused" : "Clipboard monitoring resumed");
+    }
+
+    private void SwitchMode(OperationMode newMode)
+    {
+        if (settings.CurrentMode == newMode)
+            return;
+
+        settings.CurrentMode = newMode;
+        settings.LastMode = newMode;
+        settings.Save();
+
+        UpdateModeState();
+        UpdateContextMenu();
+        
+        var modeName = newMode == OperationMode.ClipboardToQr ? "Clipboard → QR" : "QR → Clipboard";
+        ShowNotification("Mode Changed", $"Switched to {modeName} mode");
+    }
+
+    private void UpdateModeState()
+    {
+        if (settings.CurrentMode == OperationMode.QrToClipboard)
+        {
+            // Start auto-scan if enabled
+            if (settings.AutoScanEnabled)
+            {
+                autoScanService?.Start();
+            }
+            else
+            {
+                autoScanService?.Stop();
+            }
+        }
+        else
+        {
+            // Stop auto-scan when in Clipboard → QR mode
+            autoScanService?.Stop();
+        }
+    }
+
+    private void UpdateContextMenu()
+    {
+        trayContextMenu?.Dispose();
+        trayContextMenu = CreateContextMenu();
+        if (trayIcon != null)
+        {
+            trayIcon.ContextMenuStrip = trayContextMenu;
+        }
+    }
+
+    private void ToggleAutoScan()
+    {
+        settings.AutoScanEnabled = !settings.AutoScanEnabled;
+        settings.Save();
+        
+        if (settings.AutoScanEnabled)
+        {
+            autoScanService?.Start();
+            ShowNotification("Auto Scan", "Auto scan enabled");
+        }
+        else
+        {
+            autoScanService?.Stop();
+            ShowNotification("Auto Scan", "Auto scan disabled");
+        }
+        
+        UpdateContextMenu();
+    }
+
+    private void StartManualScan()
+    {
+        try
+        {
+            using var overlay = new RegionSelectionOverlay();
+            if (overlay.ShowDialog() == DialogResult.OK)
+            {
+                var region = overlay.SelectedRegion;
+                
+                // Capture the selected region
+                if (captureService == null || decoderService == null)
+                    return;
+
+                using var capture = captureService.CaptureRegion(region);
+                var decodedText = decoderService.DecodeQrCode(capture);
+                
+                if (!string.IsNullOrWhiteSpace(decodedText))
+                {
+                    ShowQrPreview(decodedText, null);
+                }
+                else
+                {
+                    ShowNotification("Manual Scan", "No QR code found in selected region");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowNotification("Manual Scan Error", $"Failed to scan region: {ex.Message}");
+        }
+    }
+
+    private void ShowQrPreview(string decodedText, string? sourceWindow)
+    {
+        using var previewDialog = new QrPreviewDialog(decodedText, sourceWindow);
+        var result = previewDialog.ShowDialog();
+        
+        if (result == DialogResult.OK)
+        {
+            if (previewDialog.ShouldCopyToClipboard)
+            {
+                CopyToClipboard(decodedText);
+                ShowNotification("QR Code", "Copied to clipboard");
+            }
+
+            if (previewDialog.ShouldOpenUrl && Uri.TryCreate(decodedText, UriKind.Absolute, out var uri))
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = uri.ToString(),
+                        UseShellExecute = true
+                    });
+                }
+                catch
+                {
+                    ShowNotification("Error", "Failed to open URL");
+                }
+            }
+        }
+        
+        // Handle "Always Ignore Window" regardless of OK/Cancel
+        if (previewDialog.ShouldIgnoreWindow &&
+            !string.IsNullOrEmpty(sourceWindow) &&
+            !settings.BlockedWindowTitles.Contains(sourceWindow))
+        {
+            settings.BlockedWindowTitles.Add(sourceWindow);
+            settings.Save();
+            ShowNotification("Window Blocked", $"Will ignore QR codes from: {sourceWindow}");
+        }
+    }
+
+    private void CopyToClipboard(string text)
+    {
+        try
+        {
+            Clipboard.SetText(text, TextDataFormat.UnicodeText);
+        }
+        catch (Exception ex)
+        {
+            ShowNotification("Clipboard Error", $"Failed to copy: {ex.Message}");
+        }
+    }
+
+    private void ShowNotification(string title, string message)
+    {
+        trayIcon?.ShowBalloonTip(3000, title, message, ToolTipIcon.Info);
     }
 
     private void ShowSettings()
@@ -237,6 +493,7 @@ public partial class MainForm : Form
     {
         RemoveClipboardFormatListener(Handle);
         UnregisterGlobalHotKey();
+        autoScanService?.Dispose();
         trayIcon?.Dispose();
         Application.Exit();
     }
