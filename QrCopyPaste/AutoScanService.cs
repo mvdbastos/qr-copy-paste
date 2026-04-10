@@ -14,7 +14,7 @@ public class AutoScanService : IDisposable
     private readonly Action<string, string?> onQrDetected;
     
     private string? lastDetectedQr;
-    private DateTime lastDetectionTime = DateTime.MinValue;
+    private bool isThrottled;
     private int isScanning;  // 0 = not scanning, 1 = scanning (used with Interlocked)
 
     public bool IsRunning { get; private set; }
@@ -31,8 +31,7 @@ public class AutoScanService : IDisposable
         this.onQrDetected = onQrDetected;
 
         // Calculate interval based on FPS cap (e.g., 3 FPS = 333ms interval)
-        var intervalMs = 1000 / Math.Max(1, settings.AutoScanFpsCap);
-        scanTimer = new System.Threading.Timer(ScanCallback, null, Timeout.Infinite, intervalMs);
+        scanTimer = new System.Threading.Timer(ScanCallback, null, Timeout.Infinite, NormalIntervalMs);
     }
 
     public void Start()
@@ -40,8 +39,7 @@ public class AutoScanService : IDisposable
         if (!IsRunning)
         {
             IsRunning = true;
-            var intervalMs = 1000 / Math.Max(1, settings.AutoScanFpsCap);
-            scanTimer.Change(0, intervalMs);
+            scanTimer.Change(0, NormalIntervalMs);
         }
     }
 
@@ -102,20 +100,26 @@ public class AutoScanService : IDisposable
             {
                 // Decode QR code once per capture
                 var decodedText = decoderService.DecodeQrCode(capture);
-                if (string.IsNullOrWhiteSpace(decodedText))
-                    return;
 
-                // Check debounce - don't re-detect same QR within debounce period
-                if (decodedText == lastDetectedQr &&
-                    lastDetectionTime != DateTime.MinValue &&
-                    (DateTime.Now - lastDetectionTime).TotalSeconds < settings.DebounceSeconds)
+                if (string.IsNullOrWhiteSpace(decodedText))
                 {
+                    // No QR found - reset so the same code can be re-detected after it disappears
+                    lastDetectedQr = null;
+                    RestoreNormalScanRate();
                     return;
                 }
 
-                // Update last detection
+                // Deduplicate - skip if this QR was already handled
+                if (decodedText == lastDetectedQr)
+                {
+                    // Throttle down scan rate while the same QR stays on screen
+                    ThrottleScanRate();
+                    return;
+                }
+
+                // New QR code detected - restore normal rate and notify
                 lastDetectedQr = decodedText;
-                lastDetectionTime = DateTime.Now;
+                RestoreNormalScanRate();
 
                 // Notify detection on UI thread
                 onQrDetected?.Invoke(decodedText, windowTitle);
@@ -124,6 +128,29 @@ public class AutoScanService : IDisposable
         catch
         {
             // Silently ignore scanning errors to prevent spam
+        }
+    }
+
+    private int NormalIntervalMs => 1000 / Math.Max(1, settings.AutoScanFpsCap);
+
+    private void ThrottleScanRate()
+    {
+        if (!isThrottled)
+        {
+            isThrottled = true;
+            // Use DebounceSeconds (converted to ms) as the throttle interval to reduce CPU usage
+            const int msPerSecond = 1000;
+            var throttledIntervalMs = Math.Max(NormalIntervalMs, settings.DebounceSeconds * msPerSecond);
+            scanTimer.Change(throttledIntervalMs, throttledIntervalMs);
+        }
+    }
+
+    private void RestoreNormalScanRate()
+    {
+        if (isThrottled)
+        {
+            isThrottled = false;
+            scanTimer.Change(NormalIntervalMs, NormalIntervalMs);
         }
     }
 
