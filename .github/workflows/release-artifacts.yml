@@ -23,15 +23,18 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup .NET 8 SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7; update by reviewing the release and replacing this SHA
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@c7e8d5838c7b5f53f2f7b9f6f4b0a4e31f76f5f6 # v4; update by reviewing the release and replacing this SHA
         with:
           dotnet-version: "8.0.x"
-          cache: true
+          cache: true
+          cache-dependency-path: |
+            QrCopyPaste.slnx
+            QrCopyPaste/QrCopyPaste.csproj
 
       - name: Resolve release version and tag
         id: version
@@ -55,7 +58,7 @@ jobs:
             $normalizedVersion = $normalizedVersion.Substring(1)
           }
 
-          $semverPattern = '^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$'
+          $semverPattern = '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$'
           if ($normalizedVersion -notmatch $semverPattern) {
             throw "Invalid version '$sourceVersion'. Use semantic version format such as 1.2.3 or 1.2.3-rc.1."
           }
@@ -118,6 +121,6 @@ jobs:
             ${{ steps.package.outputs.zip_path }}
           fail_on_unmatched_files: true
           append_body: false
-          make_latest: true
+          make_latest: ${{ contains(steps.version.outputs.version, '-') && 'false' || 'true' }}
           draft: false
           overwrite_files: true
