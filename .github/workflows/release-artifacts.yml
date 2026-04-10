@@ -1,0 +1,123 @@
+name: Build and Release Artifacts
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Optional version override (examples: 1.2.3, v1.2.3, 1.2.3-rc.1)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7; update by reviewing the release and replacing this SHA
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@c7e8d5838c7b5f53f2f7b9f6f4b0a4e31f76f5f6 # v4; update by reviewing the release and replacing this SHA
+        with:
+          dotnet-version: "8.0.x"
+          cache: true
+          cache-dependency-path: |
+            QrCopyPaste.slnx
+            QrCopyPaste/QrCopyPaste.csproj
+
+      - name: Resolve release version and tag
+        id: version
+        shell: pwsh
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          $sourceVersion = $env:INPUT_VERSION
+          if ([string]::IsNullOrWhiteSpace($sourceVersion)) {
+            if ($env:REF_TYPE -eq "tag") {
+              $sourceVersion = $env:REF_NAME
+            } else {
+              throw "Manual runs from non-tag refs must provide the version input."
+            }
+          }
+
+          $normalizedVersion = $sourceVersion.Trim()
+          if ($normalizedVersion.StartsWith("v")) {
+            $normalizedVersion = $normalizedVersion.Substring(1)
+          }
+
+          $semverPattern = '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$'
+          if ($normalizedVersion -notmatch $semverPattern) {
+            throw "Invalid version '$sourceVersion'. Use semantic version format such as 1.2.3 or 1.2.3-rc.1."
+          }
+
+          $tagName = "v$normalizedVersion"
+          "version=$normalizedVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "tag=$tagName" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "zip_name=QrCopyPaste-$tagName-win-x64.zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Restore dependencies
+        run: dotnet restore QrCopyPaste.slnx
+
+      - name: Publish app
+        run: >-
+          dotnet publish QrCopyPaste/QrCopyPaste.csproj
+          --configuration Release
+          --no-restore
+          --property:PublishProfile=FolderProfile
+          --property:Version=${{ steps.version.outputs.version }}
+          --property:FileVersion=${{ steps.version.outputs.version }}
+          --property:InformationalVersion=${{ steps.version.outputs.version }}+${{ github.sha }}
+
+      - name: Package release zip
+        id: package
+        shell: pwsh
+        run: |
+          $publishDir = Join-Path $env:GITHUB_WORKSPACE "QrCopyPaste/publish/win-x64"
+          if (-not (Test-Path $publishDir)) {
+            throw "Publish output not found at $publishDir"
+          }
+
+          $zipPath = Join-Path $env:GITHUB_WORKSPACE "${{ steps.version.outputs.zip_name }}"
+          if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force
+          }
+
+          Compress-Archive -Path (Join-Path $publishDir '*') -DestinationPath $zipPath -CompressionLevel Optimal
+          "zip_path=$zipPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.zip_name }}
+          path: ${{ steps.package.outputs.zip_path }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Create or update GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.version.outputs.tag }}
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          generate_release_notes: true
+          files: |
+            ${{ steps.package.outputs.zip_path }}
+          fail_on_unmatched_files: true
+          append_body: false
+          make_latest: ${{ contains(steps.version.outputs.version, '-') && 'false' || 'true' }}
+          draft: false
+          overwrite_files: true
