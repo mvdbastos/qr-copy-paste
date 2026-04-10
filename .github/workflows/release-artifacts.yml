@@ -71,14 +71,11 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore QrCopyPaste.slnx
 
-      - name: Build solution
-        run: dotnet build QrCopyPaste.slnx --configuration Release --no-restore
-
       - name: Publish app
         run: >-
           dotnet publish QrCopyPaste/QrCopyPaste.csproj
           --configuration Release
-          --no-build
+          --no-restore
           --property:PublishProfile=FolderProfile
           --property:Version=${{ steps.version.outputs.version }}
           --property:FileVersion=${{ steps.version.outputs.version }}
