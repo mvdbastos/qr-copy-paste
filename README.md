@@ -98,6 +98,43 @@ dotnet run --project QrCopyPaste/QrCopyPaste.csproj
 
 Or run the compiled executable from the bin folder.
 
+## Automated Artifact Releases (GitHub Actions)
+
+This repository includes a release workflow at `.github/workflows/release-artifacts.yml`.
+
+### What It Does
+
+- Builds and publishes the app for `win-x64` using the existing publish profile (`FolderProfile`)
+- Packages the publish output as a versioned ZIP file
+- Uploads the ZIP as a GitHub Actions artifact (30-day retention)
+- Creates or updates a GitHub Release and attaches the same ZIP asset
+- Generates GitHub release notes automatically
+
+### Triggers
+
+1. **Tag push**: Push a tag such as `v1.2.3` or `v1.2.3-rc.1`
+2. **Manual dispatch**: Run from the Actions tab, optionally providing a `version` input
+
+### Version Rules
+
+- Accepted examples: `1.2.3`, `v1.2.3`, `1.2.3-rc.1`
+- Non-tag manual runs must provide the `version` input
+- The workflow normalizes release tags to `v<version>`
+
+### Example Release Commands
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+For prerelease:
+
+```bash
+git tag v1.1.0-rc.1
+git push origin v1.1.0-rc.1
+```
+
 ## Usage
 
 ### Getting Started
